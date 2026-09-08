@@ -8,6 +8,7 @@ import {
 	type Db,
 	GtmApprovalDecisionKind,
 	GtmApprovalStatus,
+	type Prisma,
 	workspaceIdOrDefault,
 } from "@crm/db";
 import {
@@ -188,7 +189,7 @@ export class GtmService {
 		entityType: string,
 		entityId: string,
 		action: string,
-		before: object,
+		before: Prisma.InputJsonObject,
 	): Promise<void> {
 		const organizationId = currentWorkspaceId();
 		if (!organizationId)
