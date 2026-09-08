@@ -116,7 +116,7 @@ model_title() {
 
 	body=$(jq -n \
 		--arg model "$MODEL" \
-		--arg system "You write the Conventional Commit title for a pull request that will be squashed onto main, so the title is the commit subject and the line a person reads in the changelog months from now. Write it for that reader: what the change does for them, not which files moved.
+		--arg system "You write the Conventional Commit title for a pull request that will be squashed onto release, so the title is the commit subject and the line a person reads in the changelog months from now. Write it for that reader: what the change does for them, not which files moved.
 
 Format: type(scope): subject
 Types: feat (new capability, minor bump), fix, perf, refactor, docs, revert (patch), chore, test, ci, build, style (no release). Add ! before the colon only for a breaking change.

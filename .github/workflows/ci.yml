@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   push:
-    branches: [main, release]
+    branches: [release]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -19,7 +19,7 @@ env:
 
 jobs:
   check:
-    name: check-types, lint, test
+    name: check-types, lint, test, build
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -75,3 +75,5 @@ jobs:
       - run: bun run lint:slop
 
       - run: bun run test
+
+      - run: bun run build

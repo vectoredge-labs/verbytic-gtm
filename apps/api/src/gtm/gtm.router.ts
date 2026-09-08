@@ -18,8 +18,19 @@ import {
 	approvalListInput,
 	approvalListOutput,
 	approvalOutput,
+	archiveContactInput,
 	contactLifecycleInput,
 	contactLifecycleOutput,
+	conversationStateInput,
+	conversationStateOutput,
+	createDraftInput,
+	draftOutput,
+	inboxOutput,
+	prospectDetailInput,
+	prospectDetailOutput,
+	researchBriefInput,
+	researchBriefOutput,
+	reviseDraftInput,
 	suppressContactInput,
 	suppressionOutput,
 } from "./gtm.contracts";
@@ -37,6 +48,16 @@ export class GtmRouter {
 		return this.gtm.list(input.status);
 	}
 
+	@Query({ output: inboxOutput })
+	inbox() {
+		return this.gtm.inbox();
+	}
+
+	@Query({ input: prospectDetailInput, output: prospectDetailOutput })
+	prospect(@Input() input: z.infer<typeof prospectDetailInput>) {
+		return this.gtm.prospect(input.contactId);
+	}
+
 	@Mutation({ input: approvalDecisionInput, output: approvalOutput })
 	decideApproval(
 		@Ctx() ctx: AuthedTrpcContext,
@@ -51,7 +72,7 @@ export class GtmRouter {
 		@Input() input: z.infer<typeof suppressContactInput>,
 	) {
 		return this.gtm.suppress(
-			input.email,
+			input.contactId,
 			input.reason,
 			ctx.user.id,
 			ctx.workspace.role,
@@ -75,6 +96,58 @@ export class GtmRouter {
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof contactLifecycleInput>,
 	) {
-		return this.gtm.updateContactLifecycle(input, ctx.user.id);
+		return this.gtm.updateContactLifecycle(
+			input.contactId,
+			input.status,
+			ctx.user.id,
+		);
+	}
+
+	@Mutation({ input: archiveContactInput, output: contactLifecycleOutput })
+	archiveContact(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof archiveContactInput>,
+	) {
+		return this.gtm.archive(input, ctx.user.id);
+	}
+
+	@Mutation({ input: prospectDetailInput, output: contactLifecycleOutput })
+	restoreContact(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof prospectDetailInput>,
+	) {
+		return this.gtm.restore(input.contactId, ctx.user.id);
+	}
+
+	@Mutation({ input: researchBriefInput, output: researchBriefOutput })
+	createResearchBrief(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof researchBriefInput>,
+	) {
+		return this.gtm.createResearchBrief(input, ctx.user.id);
+	}
+
+	@Mutation({ input: createDraftInput, output: draftOutput })
+	createDraft(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof createDraftInput>,
+	) {
+		return this.gtm.createDraft(input, ctx.user.id);
+	}
+
+	@Mutation({ input: reviseDraftInput, output: draftOutput })
+	reviseDraft(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof reviseDraftInput>,
+	) {
+		return this.gtm.reviseDraft(input, ctx.user.id);
+	}
+
+	@Mutation({ input: conversationStateInput, output: conversationStateOutput })
+	updateConversationState(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof conversationStateInput>,
+	) {
+		return this.gtm.updateConversation(input, ctx.user.id);
 	}
 }

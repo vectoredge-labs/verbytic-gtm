@@ -30,6 +30,8 @@ describe("Phase 0 migration", () => {
 		expect(result.rows.map((row) => row.tablename).sort()).toEqual([
 			"gtmApproval",
 			"gtmAuditEvent",
+			"gtmOutboundDraft",
+			"gtmOutboundDraftRevision",
 			"gtmResearchBrief",
 		]);
 	});
@@ -82,7 +84,7 @@ describe("Phase 0 migration", () => {
 		expect(result.rows[0]).toEqual({
 			automationPaused: true,
 			doNotContact: true,
-			gtmStatus: "DO_NOT_CONTACT",
+			gtmStatus: "SUPPRESSED",
 		});
 	});
 });

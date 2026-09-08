@@ -39,6 +39,8 @@ model User {
   initiatedAgentRuns      AgentRun[]                    @relation("AgentRunInitiator")
   agentAuditEvents        AgentAuditEvent[]             @relation("AgentAuditActor")
   gtmApprovalDecisions    GtmApproval[]                 @relation("GtmApprovalDecider")
+  authoredDraftRevisions  GtmOutboundDraftRevision[]    @relation("GtmDraftRevisionAuthor")
+  ownedEmailThreads       EmailThread[]                 @relation("EmailThreadOwner")
   gtmAuditEvents          GtmAuditEvent[]               @relation("GtmAuditActor")
   suppressedContacts      SuppressedContact[]           @relation("SuppressedContactCreator")
   suppressedDomains       SuppressedDomain[]            @relation("SuppressedDomainCreator")
@@ -211,15 +213,18 @@ enum RecordSource {
 enum GtmLifecycleStatus {
   NEW
   RESEARCHED
-  READY_FOR_OUTREACH
+  DRAFT_READY
+  OUTREACH_PENDING_APPROVAL
   CONTACTED
-  ENGAGED
+  REPLIED
+  INTERESTED
+  OBJECTION
+  NOT_NOW
   MEETING_PROPOSED
   MEETING_BOOKED
-  QUALIFIED
-  NURTURE
-  CLOSED_LOST
-  DO_NOT_CONTACT
+  CLOSED
+  SUPPRESSED
+  ARCHIVED
 }
 
 enum GtmReplyClass {
@@ -252,6 +257,27 @@ enum GtmApprovalDecisionKind {
   REJECTED
   ESCALATED
   MARKED_DO_NOT_CONTACT
+}
+
+enum GtmDraftType {
+  INITIAL_OUTREACH
+  FOLLOW_UP
+  REPLY
+  MEETING_PROPOSAL
+}
+
+enum GtmRiskCategory {
+  STANDARD
+  STRATEGIC_ACCOUNT
+  PRICING_COMMERCIAL
+  NUMERIC_ROI
+  LEGAL_SECURITY
+  EXTERNAL_SEND
+}
+
+enum GtmDraftStatus {
+  ACTIVE
+  CANCELLED
 }
 
 enum AgentConversationKind {
@@ -362,6 +388,8 @@ model Company {
   knownInitiatives Json    @default("[]")
   verbyticUseCases Json    @default("[]")
   strategicAccount Boolean @default(false)
+  primaryUseCase       String?
+  accountStrategyNotes String?
 
   ownerId          String?
   owner            User?    @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
@@ -387,6 +415,7 @@ model Company {
   fieldValues    FieldValue[]
   researchBriefs GtmResearchBrief[]
   approvals      GtmApproval[]
+  outboundDrafts GtmOutboundDraft[]
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
@@ -462,6 +491,7 @@ model Contact {
   submissions     FormSubmission[]   @relation("SubmissionContact")
   researchBriefs  GtmResearchBrief[]
   approvals       GtmApproval[]
+  outboundDrafts  GtmOutboundDraft[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
@@ -1275,10 +1305,24 @@ model EmailThread {
   firstMessageAt DateTime
   lastMessageAt  DateTime
   messageCount   Int      @default(0)
+  replyClass      GtmReplyClass?
+  needs           Json             @default("[]")
+  objections      Json             @default("[]")
+  commitments     Json             @default("[]")
+  nextAction      String?
+  nextActionDueAt DateTime?
+  lastInboundAt   DateTime?
+  lastOutboundAt  DateTime?
+  summary         String?
+  summaryVersion  Int              @default(0)
+  summaryFreshAt  DateTime?
+  currentOwnerId  String?
+  currentOwner    User?            @relation("EmailThreadOwner", fields: [currentOwnerId], references: [id], onDelete: SetNull)
 
   messages  EmailMessage[]
   activity  Activity?
   approvals GtmApproval[]
+  outboundDrafts GtmOutboundDraft[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1422,11 +1466,59 @@ model GtmResearchBrief {
   recommendedCta        String?
   confidence            Float?
   sources               Json         @default("[]")
+  supersededById        String?      @unique
+  supersededBy          GtmResearchBrief? @relation("ResearchBriefVersions", fields: [supersededById], references: [id], onDelete: SetNull)
+  supersedes            GtmResearchBrief? @relation("ResearchBriefVersions")
   createdAt             DateTime     @default(now())
 
   @@unique([organizationId, contactId, version])
   @@index([organizationId, createdAt])
   @@map("gtmResearchBrief")
+}
+
+model GtmOutboundDraft {
+  id             String         @id @default(cuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contactId      String
+  contact        Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  companyId      String?
+  company        Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  threadId       String?
+  thread         EmailThread?   @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  draftType      GtmDraftType
+  status         GtmDraftStatus @default(ACTIVE)
+  cancelledAt    DateTime?
+  cancelReason   String?
+  revisions      GtmOutboundDraftRevision[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([organizationId, id])
+  @@index([organizationId, contactId, createdAt])
+  @@index([organizationId, status])
+  @@map("gtmOutboundDraft")
+}
+
+model GtmOutboundDraftRevision {
+  id                 String           @id @default(cuid())
+  draftId            String
+  draft              GtmOutboundDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  revision           Int
+  subject            String
+  content            String
+  senderIdentity     String
+  riskCategory       GtmRiskCategory
+  evidenceReferences Json             @default("[]")
+  authorUserId       String?
+  authorUser         User?            @relation("GtmDraftRevisionAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+  authorAgent         String?
+  approval            GtmApproval?
+  createdAt           DateTime         @default(now())
+
+  @@unique([draftId, revision])
+  @@index([draftId, createdAt])
+  @@map("gtmOutboundDraftRevision")
 }
 
 model GtmApproval {
@@ -1439,6 +1531,8 @@ model GtmApproval {
   company         Company?                 @relation(fields: [companyId], references: [id], onDelete: SetNull)
   threadId        String?
   thread          EmailThread?             @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  draftRevisionId String?                   @unique
+  draftRevision   GtmOutboundDraftRevision? @relation(fields: [draftRevisionId], references: [id], onDelete: Restrict)
   kind            String
   riskReason      String
   evidence        Json                     @default("[]")
@@ -1451,6 +1545,8 @@ model GtmApproval {
   decidedById     String?
   decidedBy       User?                    @relation("GtmApprovalDecider", fields: [decidedById], references: [id], onDelete: SetNull)
   decidedAt       DateTime?
+  invalidatedAt   DateTime?
+  invalidatedByRevisionId String?
   createdAt       DateTime                 @default(now())
   updatedAt       DateTime                 @updatedAt
 
@@ -1682,6 +1778,7 @@ model Organization {
   suppressedContacts SuppressedContact[]
   gtmResearchBriefs  GtmResearchBrief[]
   gtmApprovals       GtmApproval[]
+  gtmOutboundDrafts  GtmOutboundDraft[]
   gtmAuditEvents     GtmAuditEvent[]
 
   @@unique([slug])

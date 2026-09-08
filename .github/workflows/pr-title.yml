@@ -3,7 +3,7 @@ name: PR title
 on:
   pull_request:
     types: [opened, edited, reopened, ready_for_review, synchronize]
-    branches: [main]
+    branches: [release]
 
 concurrency:
   group: pr-title-${{ github.event.pull_request.number }}
@@ -116,7 +116,7 @@ jobs:
           message: |
             **This pull request's title is not a Conventional Commit.**
 
-            It is squashed onto `main` as-is, so the title is the commit subject and the line that shows up in the changelog and the release notes.
+            It is squashed onto `release` as-is, so the title is the commit subject and the line that shows up in the changelog and the release notes.
 
             ```
             ${{ steps.lint.outputs.error_message }}
