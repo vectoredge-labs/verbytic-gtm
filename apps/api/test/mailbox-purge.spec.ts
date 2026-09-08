@@ -188,7 +188,7 @@ async function messagesOn(rootMessageId: string): Promise<string[]> {
 }
 
 async function threadState(rootMessageId: string) {
-	return db.emailThread.findUnique({
+	return db.emailThread.findFirst({
 		where: { rootMessageId },
 		select: {
 			subject: true,

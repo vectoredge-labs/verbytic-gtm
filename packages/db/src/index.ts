@@ -15,3 +15,8 @@ export type {
 	JsonValue,
 	WorkspaceProfileSections,
 } from "./json";
+export {
+	currentWorkspaceId,
+	withWorkspaceScope,
+	workspaceIdOrDefault,
+} from "./workspace-scope";

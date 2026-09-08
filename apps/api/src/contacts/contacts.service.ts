@@ -6,6 +6,7 @@ import {
 	type Prisma,
 	Prisma as PrismaNamespace,
 	type RecordSource,
+	workspaceIdOrDefault,
 } from "@crm/db";
 import type { FieldDefinitionWithOptions } from "@crm/db/fields";
 import {
@@ -426,7 +427,12 @@ export class ContactsService {
 
 				if (suppress) {
 					await tx.suppressedContact.upsert({
-						where: { email: suppress },
+						where: {
+							organizationId_email: {
+								organizationId: workspaceIdOrDefault(),
+								email: suppress,
+							},
+						},
 						create: {
 							email: suppress,
 							reason: `Deleted from the CRM (${name})`,

@@ -19,6 +19,7 @@
 		"clean": "rm -rf .turbo .eve node_modules"
 	},
 	"dependencies": {
+		"@crm/auth": "workspace:*",
 		"@crm/db": "workspace:*",
 		"@crm/env": "workspace:*",
 		"@crm/telemetry": "workspace:*",

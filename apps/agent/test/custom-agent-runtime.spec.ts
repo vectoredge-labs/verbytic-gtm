@@ -28,6 +28,10 @@ import {
 	requireTeamAgentAttribute,
 } from "../agent/lib/session-purpose";
 import {
+	createSlackChannel,
+	joinSlackChannel,
+} from "../agent/lib/slack-membership";
+import {
 	builderDraftToolInput,
 	draftInputFromTool,
 } from "../agent/subagents/agent_builder/lib/draft-input";
@@ -198,6 +202,37 @@ describe("deployed agent data sources", () => {
 });
 
 describe("deployed Slack actions", () => {
+	it("blocks Slack membership writes by default", async () => {
+		const previous = process.env.EXTERNAL_WRITES_ENABLED;
+		delete process.env.EXTERNAL_WRITES_ENABLED;
+		try {
+			expect(await joinSlackChannel("channel-1")).toEqual({
+				joined: false,
+				reason: "External provider writes are disabled.",
+				needsHuman: true,
+			});
+			expect(await createSlackChannel("phase-zero", false)).toEqual({
+				error: "External provider writes are disabled.",
+			});
+		} finally {
+			process.env.EXTERNAL_WRITES_ENABLED = previous;
+		}
+	});
+
+	it("blocks external writes by default", async () => {
+		const previous = process.env.EXTERNAL_WRITES_ENABLED;
+		delete process.env.EXTERNAL_WRITES_ENABLED;
+		await expect(
+			sendSlackMessage(
+				"token",
+				{ kind: "channel", id: "C1", label: "sales" },
+				"hello",
+				"message-1",
+			),
+		).rejects.toThrow("External writes are disabled");
+		process.env.EXTERNAL_WRITES_ENABLED = previous;
+	});
+
 	const manifest = {
 		triggers: [
 			{

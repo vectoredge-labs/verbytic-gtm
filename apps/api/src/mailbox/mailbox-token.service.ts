@@ -138,12 +138,16 @@ export class MailboxTokenService {
 	}
 
 	private async revokeWithGoogle(userId: string): Promise<boolean> {
-		const account = await this.db.account.findFirst({
-			where: { userId, providerId: GOOGLE_PROVIDER_ID },
-			select: { refreshToken: true, accessToken: true },
-		});
-
-		const token = account?.refreshToken ?? account?.accessToken;
+		let token: string | undefined;
+		try {
+			token = (
+				await auth.api.getAccessToken({
+					body: { providerId: GOOGLE_PROVIDER_ID, userId },
+				})
+			).accessToken;
+		} catch {
+			return false;
+		}
 		if (!token) return true;
 
 		const response = await fetch(GOOGLE_REVOKE_URL, {

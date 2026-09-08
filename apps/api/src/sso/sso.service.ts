@@ -6,10 +6,9 @@ import {
 	ssoCallbackBase,
 	ssoCallbackURL,
 	ssoProviderName,
-	WORKSPACE_ID,
 	workspaceRoleOf,
 } from "@crm/auth";
-import type { Db, Prisma } from "@crm/db";
+import { type Db, type Prisma, workspaceIdOrDefault } from "@crm/db";
 import {
 	BadRequestException,
 	ForbiddenException,
@@ -118,7 +117,7 @@ export class SsoService {
 
 	async signInOptions(): Promise<SignInOptions> {
 		const rows = await this.db.ssoProvider.findMany({
-			where: { organizationId: WORKSPACE_ID },
+			where: { organizationId: workspaceIdOrDefault() },
 			select: { providerId: true },
 			orderBy: { providerId: "asc" },
 		});
@@ -180,7 +179,7 @@ export class SsoService {
 					providerId: input.providerId,
 					issuer: input.issuer,
 					domain: domains.join(","),
-					organizationId: WORKSPACE_ID,
+					organizationId: workspaceIdOrDefault(),
 					oidcConfig: {
 						clientId: input.clientId,
 						clientSecret: input.clientSecret,
@@ -231,7 +230,7 @@ export class SsoService {
 	private searchWhere(q: string): Prisma.SsoProviderWhereInput {
 		const term = q.trim();
 		const where: Prisma.SsoProviderWhereInput = {
-			organizationId: WORKSPACE_ID,
+			organizationId: workspaceIdOrDefault(),
 		};
 
 		if (term) {

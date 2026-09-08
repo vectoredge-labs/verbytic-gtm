@@ -2,6 +2,75 @@ import "@crm/env/load";
 
 import { PrismaPg } from "@prisma/adapter-pg";
 import { type Prisma, PrismaClient } from "./generated/prisma/client";
+import { currentWorkspaceId } from "./workspace-scope";
+
+const scopedModels = new Set([
+	"Company",
+	"Contact",
+	"Deal",
+	"Activity",
+	"AgentTask",
+	"MailboxSync",
+	"EmailThread",
+	"CalendarEvent",
+	"SuppressedDomain",
+	"SuppressedContact",
+	"GtmResearchBrief",
+	"GtmApproval",
+	"GtmAuditEvent",
+]);
+
+const readOperations = new Set([
+	"findUnique",
+	"findUniqueOrThrow",
+	"findFirst",
+	"findFirstOrThrow",
+	"findMany",
+	"count",
+	"aggregate",
+	"groupBy",
+	"update",
+	"updateMany",
+	"delete",
+	"deleteMany",
+]);
+
+function scopedPrismaClient(client: PrismaClient) {
+	return client.$extends({
+		name: "workspaceScope",
+		query: {
+			$allModels: {
+				async $allOperations({ model, operation, args, query }) {
+					const organizationId = currentWorkspaceId();
+					if (!organizationId || !scopedModels.has(model)) return query(args);
+
+					if (readOperations.has(operation)) {
+						const where = Reflect.get(args, "where");
+						Reflect.set(args, "where", { ...where, organizationId });
+					}
+
+					if (operation === "create") {
+						const data = Reflect.get(args, "data");
+						Reflect.set(args, "data", { ...data, organizationId });
+					}
+
+					if (operation === "createMany") {
+						const data = Reflect.get(args, "data");
+						Reflect.set(
+							args,
+							"data",
+							Array.isArray(data)
+								? data.map((row) => ({ ...row, organizationId }))
+								: { ...data, organizationId },
+						);
+					}
+
+					return query(args);
+				},
+			},
+		},
+	});
+}
 
 const connectionString =
 	process.env.NODE_ENV === "test" ? testDatabase() : liveDatabase();
@@ -99,25 +168,25 @@ const logDefinitions: Prisma.LogDefinition[] = [
 ];
 
 const createPrismaClient = () => {
-	const client = new PrismaClient({
+	const rawClient = new PrismaClient({
 		adapter: new PrismaPg({ connectionString }),
 		log: logDefinitions,
 	});
 
-	client.$on("error", ({ message, target }) => {
+	rawClient.$on("error", ({ message, target }) => {
 		sink({ level: "error", message, target });
 	});
-	client.$on("warn", ({ message, target }) => {
+	rawClient.$on("warn", ({ message, target }) => {
 		sink({ level: "warn", message, target });
 	});
-	client.$on("info", ({ message, target }) => {
+	rawClient.$on("info", ({ message, target }) => {
 		sink({ level: "info", message, target });
 	});
-	client.$on("query", ({ query, duration, target }) => {
+	rawClient.$on("query", ({ query, duration, target }) => {
 		sink({ level: "query", message: query, target, durationMs: duration });
 	});
 
-	return client;
+	return scopedPrismaClient(rawClient) as PrismaClient;
 };
 
 declare global {

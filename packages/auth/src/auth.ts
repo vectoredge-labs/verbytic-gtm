@@ -84,6 +84,7 @@ export const auth = betterAuth({
 	socialProviders,
 
 	account: {
+		encryptOAuthTokens: true,
 		accountLinking: {
 			enabled: true,
 			trustedProviders: [GOOGLE_PROVIDER_ID, MICROSOFT_PROVIDER_ID],
@@ -93,6 +94,13 @@ export const auth = betterAuth({
 	session: {
 		expiresIn: 60 * 60 * 24 * 7,
 		updateAge: 60 * 60 * 24,
+		additionalFields: {
+			activeOrganizationId: {
+				type: "string",
+				required: false,
+				input: false,
+			},
+		},
 		cookieCache: {
 			enabled: true,
 			maxAge: 5 * 60,

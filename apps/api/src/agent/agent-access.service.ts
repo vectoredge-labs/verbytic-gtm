@@ -1,11 +1,10 @@
 import {
 	isWorkspaceAdmin,
 	toWorkspaceRole,
-	WORKSPACE_ID,
 	type WorkspaceRole,
 	workspaceRoleOf,
 } from "@crm/auth";
-import type { Db, Prisma } from "@crm/db";
+import { type Db, type Prisma, workspaceIdOrDefault } from "@crm/db";
 import {
 	ForbiddenException,
 	Injectable,
@@ -33,10 +32,11 @@ export class AgentAccessService {
 		agentId: string,
 		userId: string,
 	) {
+		const organizationId = workspaceIdOrDefault();
 		const [member] = await tx.$queryRaw<Array<{ role: string }>>`
 			SELECT role
 			FROM "member"
-			WHERE "organizationId" = ${WORKSPACE_ID}
+			WHERE "organizationId" = ${organizationId}
 				AND "userId" = ${userId}
 			FOR SHARE
 		`;

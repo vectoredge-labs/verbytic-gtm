@@ -38,6 +38,10 @@ model User {
   createdAgentTriggers    AgentTrigger[]                @relation("AgentTriggerCreator")
   initiatedAgentRuns      AgentRun[]                    @relation("AgentRunInitiator")
   agentAuditEvents        AgentAuditEvent[]             @relation("AgentAuditActor")
+  gtmApprovalDecisions    GtmApproval[]                 @relation("GtmApprovalDecider")
+  gtmAuditEvents          GtmAuditEvent[]               @relation("GtmAuditActor")
+  suppressedContacts      SuppressedContact[]           @relation("SuppressedContactCreator")
+  suppressedDomains       SuppressedDomain[]            @relation("SuppressedDomainCreator")
   conversationShares      AgentConversationShare[]      @relation("ConversationShareCreator")
   conversationSubmissions AgentConversationSubmission[] @relation("ConversationSubmissionAuthor")
   conversationFeedback    AgentConversationFeedback[]   @relation("ConversationFeedbackAuthor")
@@ -204,6 +208,52 @@ enum RecordSource {
   TRACKING
 }
 
+enum GtmLifecycleStatus {
+  NEW
+  RESEARCHED
+  READY_FOR_OUTREACH
+  CONTACTED
+  ENGAGED
+  MEETING_PROPOSED
+  MEETING_BOOKED
+  QUALIFIED
+  NURTURE
+  CLOSED_LOST
+  DO_NOT_CONTACT
+}
+
+enum GtmReplyClass {
+  INTERESTED
+  QUESTION
+  OBJECTION
+  PRICING
+  SECURITY_LEGAL
+  REFERRAL
+  NOT_NOW
+  UNSUBSCRIBE
+  BOOK_MEETING
+  RESCHEDULE
+  NEGATIVE
+  OUT_OF_OFFICE
+  UNKNOWN
+}
+
+enum GtmApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ESCALATED
+}
+
+enum GtmApprovalDecisionKind {
+  APPROVED_UNCHANGED
+  EDITED_LIGHTLY
+  REWROTE_HEAVILY
+  REJECTED
+  ESCALATED
+  MARKED_DO_NOT_CONTACT
+}
+
 enum AgentConversationKind {
   RECORD
   BUILDER
@@ -278,11 +328,13 @@ enum AgentResponseRating {
 }
 
 model Company {
-  id          String  @id @default(cuid())
-  name        String
-  domain      String?
-  website     String?
-  description String?
+  id             String       @id @default(cuid())
+  organizationId String       @default("workspace")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  domain         String?
+  website        String?
+  description    String?
 
   logoUrl     String?
   logoDarkUrl String?
@@ -298,13 +350,18 @@ model Company {
   country     String?
   countryCode String?
 
-  phone       String?
-  email       String?
-  linkedinUrl String?
-  twitterUrl  String?
-  githubUrl   String?
-  pricingUrl  String?
-  careersUrl  String?
+  phone            String?
+  email            String?
+  linkedinUrl      String?
+  twitterUrl       String?
+  githubUrl        String?
+  pricingUrl       String?
+  careersUrl       String?
+  segment          String?
+  icpTier          String?
+  knownInitiatives Json    @default("[]")
+  verbyticUseCases Json    @default("[]")
+  strategicAccount Boolean @default(false)
 
   ownerId          String?
   owner            User?    @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
@@ -328,10 +385,14 @@ model Company {
   emailThreads   EmailThread[]
   calendarEvents CalendarEvent[]
   fieldValues    FieldValue[]
+  researchBriefs GtmResearchBrief[]
+  approvals      GtmApproval[]
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
-  @@unique([domain], map: "company_domain_active_key", where: { archivedAt: null })
+  @@unique([organizationId, id])
+  @@unique([organizationId, domain], map: "company_workspace_domain_active_key", where: { archivedAt: null })
+  @@index([organizationId, strategicAccount])
   @@index([ownerId])
   @@index([name])
   @@index([lastActivityAt])
@@ -350,18 +411,25 @@ model CompanyEnrichment {
 }
 
 model Contact {
-  id          String  @id @default(cuid())
-  firstName   String
-  lastName    String?
-  email       String?
-  phone       String?
-  title       String?
-  seniority   String?
-  function    String?
-  linkedinUrl String?
-  twitterUrl  String?
-  githubUrl   String?
-  imageUrl    String?
+  id               String             @id @default(cuid())
+  organizationId   String             @default("workspace")
+  organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  firstName        String
+  lastName         String?
+  email            String?
+  phone            String?
+  title            String?
+  seniority        String?
+  function         String?
+  linkedinUrl      String?
+  twitterUrl       String?
+  githubUrl        String?
+  imageUrl         String?
+  relationshipType String?
+  timezone         String?
+  gtmStatus        GtmLifecycleStatus @default(NEW)
+  doNotContact     Boolean            @default(false)
+  automationPaused Boolean            @default(false)
 
   socialsCheckedAt DateTime?
 
@@ -392,10 +460,14 @@ model Contact {
   fieldValues     FieldValue[]
   visitors        TrackedVisitor[]   @relation("VisitorContact")
   submissions     FormSubmission[]   @relation("SubmissionContact")
+  researchBriefs  GtmResearchBrief[]
+  approvals       GtmApproval[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
-  @@unique([email], map: "contact_email_active_key", where: { archivedAt: null })
+  @@unique([organizationId, id])
+  @@unique([organizationId, email], map: "contact_workspace_email_active_key", where: { archivedAt: null })
+  @@index([organizationId, gtmStatus])
   @@index([companyId])
   @@index([ownerId])
   @@index([lastActivityAt])
@@ -464,10 +536,12 @@ model ContactBrief {
 }
 
 model AgentTask {
-  id        String  @id @default(cuid())
-  contactId String?
-  companyId String?
-  dealId    String?
+  id             String       @id @default(cuid())
+  organizationId String       @default("workspace")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contactId      String?
+  companyId      String?
+  dealId         String?
 
   kind    String
   reason  String
@@ -490,6 +564,7 @@ model AgentTask {
   createdAt DateTime @default(now())
 
   @@index([dueAt, leasedUntil])
+  @@index([organizationId, dueAt, leasedUntil])
   @@index([contactId])
   @@index([dealId])
   @@index([kind, subject], where: { finishedAt: null })
@@ -914,14 +989,16 @@ model AgentAuditEvent {
 }
 
 model Deal {
-  id            String              @id @default(cuid())
-  conversations AgentConversation[]
-  name          String
-  description   String?
-  companyId     String
-  company       Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  ownerId       String
-  owner         User                @relation("DealOwner", fields: [ownerId], references: [id])
+  id             String              @id @default(cuid())
+  organizationId String              @default("workspace")
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  conversations  AgentConversation[]
+  name           String
+  description    String?
+  companyId      String
+  company        Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  ownerId        String
+  owner          User                @relation("DealOwner", fields: [ownerId], references: [id])
 
   stage             DealStage @default(DEMO_BOOKED)
   stageChangedAt    DateTime  @default(now())
@@ -945,7 +1022,9 @@ model Deal {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
+  @@unique([organizationId, id])
   @@index([companyId])
+  @@index([organizationId, stage])
   @@index([ownerId])
   @@index([stage])
   @@index([expectedCloseDate])
@@ -1107,10 +1186,12 @@ model SavedView {
 }
 
 model Activity {
-  id      String       @id @default(cuid())
-  type    ActivityType
-  subject String?
-  body    String?
+  id             String       @id @default(cuid())
+  organizationId String       @default("workspace")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type           ActivityType
+  subject        String?
+  body           String?
 
   occurredAt  DateTime?
   dueAt       DateTime?
@@ -1136,6 +1217,7 @@ model Activity {
   updatedAt DateTime @updatedAt
 
   @@index([companyId, createdAt])
+  @@index([organizationId, createdAt])
   @@index([dealId, createdAt])
   @@index([contactId, createdAt])
   @@index([dueAt])
@@ -1156,10 +1238,12 @@ enum EmailDirection {
 }
 
 model MailboxSync {
-  id     String @id @default(cuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  source String
+  id             String       @id @default(cuid())
+  organizationId String       @default("workspace")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source         String
 
   status       GoogleSyncStatus @default(IDLE)
   cursor       String?
@@ -1171,15 +1255,17 @@ model MailboxSync {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, source])
+  @@unique([organizationId, userId, source])
   @@index([status])
   @@map("mailboxSync")
 }
 
 model EmailThread {
-  id            String  @id @default(cuid())
-  rootMessageId String  @unique
-  subject       String?
+  id             String       @id @default(cuid())
+  organizationId String       @default("workspace")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rootMessageId  String
+  subject        String?
 
   companyId String?
   company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
@@ -1190,12 +1276,16 @@ model EmailThread {
   lastMessageAt  DateTime
   messageCount   Int      @default(0)
 
-  messages EmailMessage[]
-  activity Activity?
+  messages  EmailMessage[]
+  activity  Activity?
+  approvals GtmApproval[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([organizationId, id])
+  @@unique([organizationId, rootMessageId])
+  @@index([organizationId, lastMessageAt])
   @@index([companyId, lastMessageAt])
   @@index([contactId, lastMessageAt])
   @@map("emailThread")
@@ -1213,6 +1303,7 @@ model EmailMessage {
   outlookWebLink   String?
 
   direction  EmailDirection
+  replyClass GtmReplyClass?
   fromEmail  String
   fromName   String?
   recipients Json
@@ -1228,7 +1319,9 @@ model EmailMessage {
 }
 
 model CalendarEvent {
-  id                String   @id @default(cuid())
+  id                String       @id @default(cuid())
+  organizationId    String       @default("workspace")
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   iCalUid           String
   originalStartTime DateTime
   recurringEventId  String?
@@ -1257,7 +1350,8 @@ model CalendarEvent {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([iCalUid, originalStartTime])
+  @@unique([organizationId, iCalUid, originalStartTime])
+  @@index([organizationId, startsAt])
   @@index([companyId, startsAt])
   @@index([contactId, startsAt])
   @@map("calendarEvent")
@@ -1281,19 +1375,109 @@ model CalendarAttendee {
 }
 
 model SuppressedDomain {
-  domain    String   @id
-  reason    String?
-  createdAt DateTime @default(now())
+  id             String       @id @default(cuid())
+  organizationId String       @default("workspace")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  domain         String
+  reason         String?
+  createdById    String?
+  createdBy      User?        @relation("SuppressedDomainCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
 
+  @@unique([organizationId, domain])
   @@map("suppressedDomain")
 }
 
 model SuppressedContact {
-  email     String   @id
-  reason    String?
-  createdAt DateTime @default(now())
+  id             String       @id @default(cuid())
+  organizationId String       @default("workspace")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  reason         String?
+  createdById    String?
+  createdBy      User?        @relation("SuppressedContactCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
 
+  @@unique([organizationId, email])
   @@map("suppressedContact")
+}
+
+model GtmResearchBrief {
+  id                    String       @id @default(cuid())
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contactId             String
+  contact               Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  companyId             String?
+  company               Company?     @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  version               Int
+  accountSummary        String?
+  contactSummary        String?
+  companySignals        Json         @default("[]")
+  likelyPainPoints      Json         @default("[]")
+  relevantUseCases      Json         @default("[]")
+  bestOutreachAngle     String?
+  personalizationPoints Json         @default("[]")
+  risksOrUncertainties  Json         @default("[]")
+  recommendedCta        String?
+  confidence            Float?
+  sources               Json         @default("[]")
+  createdAt             DateTime     @default(now())
+
+  @@unique([organizationId, contactId, version])
+  @@index([organizationId, createdAt])
+  @@map("gtmResearchBrief")
+}
+
+model GtmApproval {
+  id              String                   @id @default(cuid())
+  organizationId  String
+  organization    Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contactId       String
+  contact         Contact                  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  companyId       String?
+  company         Company?                 @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  threadId        String?
+  thread          EmailThread?             @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  kind            String
+  riskReason      String
+  evidence        Json                     @default("[]")
+  confidence      Float?
+  originalContent String
+  editedContent   String?
+  status          GtmApprovalStatus        @default(PENDING)
+  decisionKind    GtmApprovalDecisionKind?
+  decisionNote    String?
+  decidedById     String?
+  decidedBy       User?                    @relation("GtmApprovalDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+  decidedAt       DateTime?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  @@unique([organizationId, id])
+  @@index([organizationId, status, createdAt])
+  @@index([contactId, createdAt])
+  @@map("gtmApproval")
+}
+
+model GtmAuditEvent {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actorUserId    String?
+  actorUser      User?        @relation("GtmAuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorType      String
+  entityType     String
+  entityId       String
+  action         String
+  before         Json?
+  after          Json?
+  requestId      String?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, entityType, entityId, createdAt])
+  @@map("gtmAuditEvent")
 }
 
 model AppSetting {
@@ -1477,15 +1661,28 @@ model TelemetryCounter {
 }
 
 model Organization {
-  id          String       @id
-  name        String
-  slug        String
-  logo        String?
-  createdAt   DateTime
-  metadata    String?
-  website     String?
-  members     Member[]
-  invitations Invitation[]
+  id                 String              @id
+  name               String
+  slug               String
+  logo               String?
+  createdAt          DateTime
+  metadata           String?
+  website            String?
+  members            Member[]
+  invitations        Invitation[]
+  companies          Company[]
+  contacts           Contact[]
+  deals              Deal[]
+  activities         Activity[]
+  agentTasks         AgentTask[]
+  mailboxSyncs       MailboxSync[]
+  emailThreads       EmailThread[]
+  calendarEvents     CalendarEvent[]
+  suppressedDomains  SuppressedDomain[]
+  suppressedContacts SuppressedContact[]
+  gtmResearchBriefs  GtmResearchBrief[]
+  gtmApprovals       GtmApproval[]
+  gtmAuditEvents     GtmAuditEvent[]
 
   @@unique([slug])
   @@map("organization")

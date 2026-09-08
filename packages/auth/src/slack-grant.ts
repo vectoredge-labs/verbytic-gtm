@@ -1,6 +1,7 @@
 import { db } from "@crm/db";
 import { lockIdempotencyKey } from "@crm/db/idempotency";
 import type { OauthAccess } from "@crm/validation";
+import { encryptOAuthSecret } from "./oauth-secret";
 import { SLACK_PROVIDER_ID } from "./scopes";
 import { SLACK_CONNECTION } from "./slack-config";
 
@@ -11,7 +12,9 @@ export async function rememberSlackInstall(grant: OauthAccess): Promise<void> {
 	const install = {
 		teamId: team.id,
 		teamName: team.name ?? null,
-		userToken: installer.access_token ?? null,
+		userToken: installer.access_token
+			? encryptOAuthSecret(installer.access_token)
+			: null,
 		userScopes: installer.scope ?? "",
 		createdAt: new Date(),
 	};
