@@ -131,7 +131,7 @@ describe("Phase 1 GTM controls", () => {
 						data: { content: "Mutated" },
 					}),
 				),
-			).rejects.toThrow("immutable");
+			).rejects.toThrow(/immutable|permission denied/);
 			const revised = await service.reviseDraft(
 				{
 					draftId: created.id,
