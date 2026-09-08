@@ -4,16 +4,21 @@ import {
 	createHash,
 	randomBytes,
 } from "node:crypto";
+import { symmetricDecrypt } from "better-auth/crypto";
 
 const ENVELOPE_VERSION = "v1";
 
-function encryptionKey(): Buffer {
+function authSecret(): string {
 	const secret = process.env.BETTER_AUTH_SECRET;
 	if (!secret)
 		throw new Error(
 			"BETTER_AUTH_SECRET is required for OAuth token encryption.",
 		);
-	return createHash("sha256").update(secret, "utf8").digest();
+	return secret;
+}
+
+function encryptionKey(): Buffer {
+	return createHash("sha256").update(authSecret(), "utf8").digest();
 }
 
 export function encryptOAuthSecret(value: string): string {
@@ -45,4 +50,19 @@ export function decryptOAuthSecret(value: string): string | null {
 		decipher.update(Buffer.from(ciphertext, "base64url")),
 		decipher.final(),
 	]).toString("utf8");
+}
+
+export async function decryptStoredOAuthToken(
+	value: string | null | undefined,
+): Promise<string | null> {
+	if (!value) return null;
+	const encrypted =
+		value.startsWith("$ba$") ||
+		(value.length % 2 === 0 && /^[0-9a-f]+$/i.test(value));
+	if (!encrypted) return value;
+	try {
+		return await symmetricDecrypt({ key: authSecret(), data: value });
+	} catch {
+		return null;
+	}
 }

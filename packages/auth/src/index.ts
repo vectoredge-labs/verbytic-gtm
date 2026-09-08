@@ -13,7 +13,11 @@ export {
 	isMicrosoftConfigured,
 	isSlackConfigured,
 } from "./env";
-export { decryptOAuthSecret, encryptOAuthSecret } from "./oauth-secret";
+export {
+	decryptOAuthSecret,
+	decryptStoredOAuthToken,
+	encryptOAuthSecret,
+} from "./oauth-secret";
 export {
 	canChangeRole,
 	canDecideGtmApprovals,
