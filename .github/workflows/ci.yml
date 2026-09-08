@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   push:
-    branches: [main, release]
+    branches: [release]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -19,7 +19,7 @@ env:
 
 jobs:
   check:
-    name: check-types, lint, test
+    name: check-types, lint, test, build
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -39,8 +39,13 @@ jobs:
           --health-retries 20
 
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/crm_test?schema=public
-      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/crm_test?schema=public
+      DATABASE_URL: postgresql://crm_test_app:ci-runtime-password@localhost:5432/crm_test?schema=public
+      MIGRATION_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/crm_test?schema=public
+      TEST_DATABASE_URL: postgresql://crm_test_app:ci-runtime-password@localhost:5432/crm_test?schema=public
+      TEST_MIGRATION_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/crm_test?schema=public
+      DEPLOYMENT_ENVIRONMENT: test
+      DATABASE_ENVIRONMENT: test
+      EXTERNAL_WRITES_ENABLED: false
       ALLOWED_SIGN_IN: example.com
       BETTER_AUTH_SECRET: ci-only-secret-regenerate-for-any-real-deployment
       API_URL: http://localhost:3001
@@ -51,6 +56,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: package.json
@@ -60,6 +69,9 @@ jobs:
       - name: Apply migrations
         run: bun run db:deploy
 
+      - name: Provision restricted runtime login
+        run: bun run --filter=@crm/db db:provision-runtime
+
       - run: bun run check-types
 
       - run: bun run lint
@@ -67,3 +79,5 @@ jobs:
       - run: bun run lint:slop
 
       - run: bun run test
+
+      - run: bun run build

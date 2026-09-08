@@ -1,5 +1,5 @@
 import { isGoogleConfigured, signsInWithGoogle } from "@crm/auth";
-import type { Db, Prisma } from "@crm/db";
+import { type Db, type Prisma, workspaceIdOrDefault } from "@crm/db";
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { normalizeDomain } from "../companies/domain";
 import { ActivityStampService } from "../crm/activity-stamp.service";
@@ -192,7 +192,12 @@ export class GoogleConnectionService {
 		}
 
 		await this.db.suppressedDomain.upsert({
-			where: { domain: normalised },
+			where: {
+				organizationId_domain: {
+					organizationId: workspaceIdOrDefault(),
+					domain: normalised,
+				},
+			},
 			create: { domain: normalised, reason: options.reason ?? null },
 			update: { reason: options.reason ?? null },
 		});
@@ -200,7 +205,12 @@ export class GoogleConnectionService {
 		if (!options.purge) return { domain: normalised, purged: 0 };
 
 		const company = await this.db.company.findUnique({
-			where: { domain: normalised },
+			where: {
+				organizationId_domain: {
+					organizationId: workspaceIdOrDefault(),
+					domain: normalised,
+				},
+			},
 			select: { id: true },
 		});
 

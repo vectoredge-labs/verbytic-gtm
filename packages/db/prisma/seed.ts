@@ -376,7 +376,12 @@ async function seedCompanies(
 
 	for (const company of COMPANIES) {
 		const row = await db.company.upsert({
-			where: { domain: company.domain },
+			where: {
+				organizationId_domain: {
+					organizationId: "workspace",
+					domain: company.domain,
+				},
+			},
 			create: {
 				name: company.name,
 				domain: company.domain,
@@ -665,7 +670,12 @@ async function seedContacts(
 			used.add(email);
 
 			const contact = await db.contact.upsert({
-				where: { email },
+				where: {
+					organizationId_email: {
+						organizationId: "workspace",
+						email,
+					},
+				},
 				create: {
 					firstName,
 					lastName,

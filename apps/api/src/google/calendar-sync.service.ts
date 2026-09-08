@@ -4,6 +4,7 @@ import {
 	GoogleSyncStatus,
 	type MailboxSyncModel as MailboxSync,
 	RecordSource,
+	workspaceIdOrDefault,
 } from "@crm/db";
 import { Injectable, Logger } from "@nestjs/common";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
@@ -201,13 +202,6 @@ export class CalendarSyncService {
 
 		if (!originalStart) return "ignored";
 
-		const key = {
-			iCalUid_originalStartTime: {
-				iCalUid,
-				originalStartTime: originalStart.at,
-			},
-		};
-
 		if (event.status === "cancelled") {
 			const deleted = await this.db.calendarEvent.deleteMany({
 				where: {
@@ -244,7 +238,13 @@ export class CalendarSyncService {
 		const organizer = event.organizer?.email?.toLowerCase() ?? null;
 
 		const record = await this.db.calendarEvent.upsert({
-			where: key,
+			where: {
+				organizationId_iCalUid_originalStartTime: {
+					organizationId: workspaceIdOrDefault(),
+					iCalUid,
+					originalStartTime: originalStart.at,
+				},
+			},
 			create: {
 				iCalUid,
 				originalStartTime: originalStart.at,

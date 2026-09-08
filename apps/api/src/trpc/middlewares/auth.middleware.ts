@@ -1,3 +1,5 @@
+import { organizationRoleOf, toVerbyticRole } from "@crm/auth";
+import { withWorkspaceScope } from "@crm/db";
 import { Injectable } from "@nestjs/common";
 import { TRPCError } from "@trpc/server";
 import type {
@@ -19,8 +21,29 @@ export class AuthMiddleware implements TRPCMiddleware {
 		}
 
 		setRequestUserId(user.id);
+		const organizationId = ctx.session?.session.activeOrganizationId;
+		if (!organizationId) {
+			throw new TRPCError({
+				code: "FORBIDDEN",
+				message: "Select a workspace.",
+			});
+		}
 
-		const nextCtx: AuthedTrpcContext = { ...ctx, user };
-		return opts.next({ ctx: nextCtx });
+		const storedRole = await organizationRoleOf(organizationId, user.id);
+		if (!storedRole) {
+			throw new TRPCError({
+				code: "FORBIDDEN",
+				message: "Workspace access is required.",
+			});
+		}
+
+		const nextCtx: AuthedTrpcContext = {
+			...ctx,
+			user,
+			workspace: { id: organizationId, role: toVerbyticRole(storedRole) },
+		};
+		return withWorkspaceScope(organizationId, () =>
+			opts.next({ ctx: nextCtx }),
+		);
 	}
 }

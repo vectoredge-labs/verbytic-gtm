@@ -17,6 +17,7 @@
       "name": "agent",
       "version": "0.0.1",
       "dependencies": {
+        "@crm/auth": "workspace:*",
         "@crm/db": "workspace:*",
         "@crm/env": "workspace:*",
         "@crm/telemetry": "workspace:*",
@@ -132,6 +133,7 @@
       "devDependencies": {
         "@better-auth/cli": "^1.4.22",
         "@crm/typescript-config": "workspace:*",
+        "@types/bun": "^1.3.14",
         "@types/node": "^24.10.1",
         "@types/react": "^19.2.18",
         "react": "^19.2.8",
@@ -155,6 +157,8 @@
       },
       "devDependencies": {
         "@crm/typescript-config": "workspace:*",
+        "@electric-sql/pglite": "^0.4.3",
+        "@types/bun": "^1.3.14",
         "@types/node": "^24.10.1",
         "pg": "^8.22.0",
         "prisma": "^7.9.1",

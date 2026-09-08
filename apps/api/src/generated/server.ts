@@ -26,6 +26,7 @@ import { enrichmentQueueInput } from "@crm/validation/enrichment-queue";
 import { fieldListInput, fieldListOutput, fieldByKeyInput, serializedFieldOutput, fieldEntityInput, fieldFiltersOutput, fieldIdInput, fieldCoverageOutput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput, fieldReorderOutput, fieldDeleteOutput, fieldBackfillOutput } from "../fields/fields.contracts";
 import { googleConnectionStatusOutput, setAutoCreateInput, suppressDomainInput, suppressDomainOutput, threadInput, emailThreadOutput, calendarEventInput, calendarEventOutput } from "../google/google.contracts";
 import { purgeSyncedDataOutput, revokeAccessOutput, microsoftConnectionStatusOutput, setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
+import { approvalListInput, approvalListOutput, inboxOutput, prospectDetailInput, prospectDetailOutput, approvalDecisionInput, approvalOutput, suppressContactInput, suppressionOutput, accountStrategyInput, accountStrategyOutput, contactLifecycleInput, contactLifecycleOutput, archiveContactInput, researchBriefInput, researchBriefOutput, createDraftInput, draftOutput, reviseDraftInput, conversationStateInput, conversationStateOutput } from "../gtm/gtm.contracts";
 import { savedViewListInput, savedViewListOutput, savedViewCreateInput, savedViewOutput, savedViewUpdateArgs, savedViewIdInput, savedViewDeleteOutput } from "../saved-views/saved-views.contracts";
 import { agentModelOutput, modelCatalogOutput, setAgentModelInput, researchKeyOutput, setResearchKeyInput, archiveRetentionOutput, setArchiveRetentionDaysInput } from "../settings/settings.contracts";
 import { slackStatusOutput, slackMatchesOutput, slackChannelsInput, slackChannelsOutput, slackJoinChannelInput, slackJoinChannelOutput, slackRefreshPeopleOutput, slackCreateChannelInput, slackCreateChannelOutput, slackDisconnectOutput } from "../slack/slack.contracts";
@@ -557,6 +558,59 @@ const appRouter = t.router({
       .input(calendarEventInput)
       .output(calendarEventOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
+  gtm: t.router({
+    listApprovals: publicProcedure
+      .input(approvalListInput)
+      .output(approvalListOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    inbox: publicProcedure
+      .output(inboxOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    prospect: publicProcedure
+      .input(prospectDetailInput)
+      .output(prospectDetailOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    decideApproval: publicProcedure
+      .input(approvalDecisionInput)
+      .output(approvalOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    suppressContact: publicProcedure
+      .input(suppressContactInput)
+      .output(suppressionOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    updateAccountStrategy: publicProcedure
+      .input(accountStrategyInput)
+      .output(accountStrategyOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    updateContactLifecycle: publicProcedure
+      .input(contactLifecycleInput)
+      .output(contactLifecycleOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    archiveContact: publicProcedure
+      .input(archiveContactInput)
+      .output(contactLifecycleOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    restoreContact: publicProcedure
+      .input(prospectDetailInput)
+      .output(contactLifecycleOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    createResearchBrief: publicProcedure
+      .input(researchBriefInput)
+      .output(researchBriefOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    createDraft: publicProcedure
+      .input(createDraftInput)
+      .output(draftOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    reviseDraft: publicProcedure
+      .input(reviseDraftInput)
+      .output(draftOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    updateConversationState: publicProcedure
+      .input(conversationStateInput)
+      .output(conversationStateOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     }),
   microsoft: t.router({
     status: publicProcedure

@@ -3,7 +3,6 @@ name: Auto PR
 on:
   push:
     branches-ignore:
-      - main
       - release
       - "release-please--**"
       - "gh-readonly-queue/**"
@@ -19,7 +18,7 @@ permissions:
 
 jobs:
   open:
-    name: Open a pull request into main
+    name: Open a pull request into release
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -41,22 +40,22 @@ jobs:
             exit 0
           fi
 
-          if [ "$(git rev-list --count "origin/main..origin/$BRANCH")" = "0" ]; then
-            echo "\`$BRANCH\` has nothing \`main\` does not already have." >> "$GITHUB_STEP_SUMMARY"
+          if [ "$(git rev-list --count "origin/release..origin/$BRANCH")" = "0" ]; then
+            echo "\`$BRANCH\` has nothing \`release\` does not already have." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
-          title=$(.github/scripts/pr-title.sh generate "origin/main" "origin/$BRANCH" "$BRANCH")
+          title=$(.github/scripts/pr-title.sh generate "origin/release" "origin/$BRANCH" "$BRANCH")
 
           body=$(cat <<EOF
           Opened automatically when \`$BRANCH\` was pushed.
 
-          The title is written from the diff and rewritten as you push, because this is squashed onto \`main\` and the title becomes the commit subject and the changelog line. Retitle it yourself and it is yours — the automation stops touching it.
+          The title is written from the diff and rewritten as you push, because this is squashed onto \`release\` and the title becomes the commit subject and the changelog line. Retitle it yourself and it is yours — the automation stops touching it.
 
           <!-- pr-title: $title -->
           EOF
           )
 
-          gh pr create --base main --head "$BRANCH" --title "$title" --body "$body"
+          gh pr create --base release --head "$BRANCH" --title "$title" --body "$body"
 
           echo "Opened a pull request for \`$BRANCH\` titled \`$title\`." >> "$GITHUB_STEP_SUMMARY"

@@ -17,6 +17,13 @@ export enum NodeEnv {
 	Test = "test",
 }
 
+export enum DeploymentEnvironment {
+	Local = "local",
+	Test = "test",
+	Preview = "preview",
+	Production = "production",
+}
+
 export class EnvironmentVariables {
 	@IsEnum(NodeEnv)
 	NODE_ENV: NodeEnv = NodeEnv.Development;
@@ -33,6 +40,16 @@ export class EnvironmentVariables {
 			"DATABASE_URL is required. `docker compose up -d` starts one, or set it to any Postgres connection string.",
 	})
 	DATABASE_URL!: string;
+
+	@IsOptional()
+	@IsString()
+	MIGRATION_DATABASE_URL?: string;
+
+	@IsEnum(DeploymentEnvironment)
+	DEPLOYMENT_ENVIRONMENT: DeploymentEnvironment = DeploymentEnvironment.Local;
+
+	@IsEnum(DeploymentEnvironment)
+	DATABASE_ENVIRONMENT: DeploymentEnvironment = DeploymentEnvironment.Local;
 
 	@IsString()
 	@MinLength(32, {
@@ -151,5 +168,48 @@ export function validateEnv(config: RawEnvironment): EnvironmentVariables {
 		);
 	}
 
+	if (validated.DEPLOYMENT_ENVIRONMENT !== validated.DATABASE_ENVIRONMENT) {
+		throw new Error(
+			"DEPLOYMENT_ENVIRONMENT and DATABASE_ENVIRONMENT must match. Preview and test cannot use production data.",
+		);
+	}
+
+	if (
+		validated.NODE_ENV === NodeEnv.Test &&
+		validated.DATABASE_ENVIRONMENT !== DeploymentEnvironment.Test
+	) {
+		throw new Error("NODE_ENV=test requires DATABASE_ENVIRONMENT=test.");
+	}
+
+	if (
+		validated.NODE_ENV === NodeEnv.Production &&
+		!(
+			[
+				DeploymentEnvironment.Preview,
+				DeploymentEnvironment.Production,
+			] as DeploymentEnvironment[]
+		).includes(validated.DEPLOYMENT_ENVIRONMENT)
+	) {
+		throw new Error(
+			"NODE_ENV=production requires DEPLOYMENT_ENVIRONMENT=preview or production.",
+		);
+	}
+
+	if (
+		validated.MIGRATION_DATABASE_URL &&
+		databaseUser(validated.DATABASE_URL) ===
+			databaseUser(validated.MIGRATION_DATABASE_URL)
+	) {
+		throw new Error("Runtime and migration database users must differ.");
+	}
+
 	return validated;
+}
+
+function databaseUser(value: string): string {
+	try {
+		return new URL(value).username;
+	} catch {
+		return value;
+	}
 }

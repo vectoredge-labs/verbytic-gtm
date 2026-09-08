@@ -1,4 +1,4 @@
-import { type Db, db } from "@crm/db";
+import { currentWorkspaceId, type Db, db } from "@crm/db";
 import { WORKSPACE_ID, workspaceSlug } from "@crm/db/workspace";
 
 export { WORKSPACE_ID };
@@ -8,6 +8,22 @@ export const DEFAULT_WORKSPACE_NAME = "CRM";
 export const WORKSPACE_ROLES = ["owner", "admin", "member"] as const;
 
 export type WorkspaceRole = (typeof WORKSPACE_ROLES)[number];
+export const VERBYTIC_ROLES = ["founder", "admin", "operator"] as const;
+export type VerbyticRole = (typeof VERBYTIC_ROLES)[number];
+
+export function toVerbyticRole(role: WorkspaceRole): VerbyticRole {
+	if (role === "owner") return "founder";
+	if (role === "admin") return "admin";
+	return "operator";
+}
+
+export function canDecideGtmApprovals(role: VerbyticRole): boolean {
+	return role === "founder" || role === "admin";
+}
+
+export function canManageGtmPolicy(role: VerbyticRole): boolean {
+	return role === "founder" || role === "admin";
+}
 
 export function isWorkspaceRole(value: string): value is WorkspaceRole {
 	return (WORKSPACE_ROLES as readonly string[]).includes(value);
@@ -42,6 +58,16 @@ export async function ensureWorkspaceMembership(
 ): Promise<string | undefined> {
 	try {
 		return await db.$transaction(async (tx) => {
+			const membership = await tx.member.findFirst({
+				where: { userId },
+				orderBy: { createdAt: "asc" },
+				select: { organizationId: true },
+			});
+			if (membership) return membership.organizationId;
+
+			const memberCount = await tx.member.count();
+			if (memberCount > 0) return undefined;
+
 			const workspace = await tx.organization.upsert({
 				where: { id: WORKSPACE_ID },
 				create: {
@@ -63,40 +89,14 @@ export async function ensureWorkspaceMembership(
 				});
 			}
 
-			const enrolled = await tx.member.count({
-				where: { organizationId: workspace.id },
-			});
-
-			if (enrolled === 0) {
-				const existing = await tx.user.findMany({
-					select: { id: true },
-					orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-				});
-
-				await tx.member.createMany({
-					data: existing.map((user, index) => ({
-						id: crypto.randomUUID(),
-						organizationId: workspace.id,
-						userId: user.id,
-						role: index === 0 ? "owner" : "member",
-						createdAt: new Date(),
-					})),
-					skipDuplicates: true,
-				});
-			}
-
-			await tx.member.upsert({
-				where: {
-					organizationId_userId: { organizationId: workspace.id, userId },
-				},
-				create: {
+			await tx.member.create({
+				data: {
 					id: crypto.randomUUID(),
 					organizationId: workspace.id,
 					userId,
-					role: "member",
+					role: "owner",
 					createdAt: new Date(),
 				},
-				update: {},
 			});
 
 			return workspace.id;
@@ -121,7 +121,25 @@ export async function workspaceRoleOf(
 	client: WorkspaceMemberReader = db,
 ): Promise<WorkspaceRole | null> {
 	const member = await client.member.findUnique({
-		where: { organizationId_userId: { organizationId: WORKSPACE_ID, userId } },
+		where: {
+			organizationId_userId: {
+				organizationId: currentWorkspaceId() ?? WORKSPACE_ID,
+				userId,
+			},
+		},
+		select: { role: true },
+	});
+
+	return member ? toWorkspaceRole(member.role) : null;
+}
+
+export async function organizationRoleOf(
+	organizationId: string,
+	userId: string,
+	client: WorkspaceMemberReader = db,
+): Promise<WorkspaceRole | null> {
+	const member = await client.member.findUnique({
+		where: { organizationId_userId: { organizationId, userId } },
 		select: { role: true },
 	});
 

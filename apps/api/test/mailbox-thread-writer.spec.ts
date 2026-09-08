@@ -96,7 +96,7 @@ describe("storing a synced email", () => {
 
 		expect(stored).toBe(true);
 
-		const thread = await db.emailThread.findUnique({
+		const thread = await db.emailThread.findFirst({
 			where: { rootMessageId: rootId },
 			select: {
 				id: true,
@@ -110,7 +110,7 @@ describe("storing a synced email", () => {
 	});
 
 	it("repairs a thread whose projection was lost rather than skipping it forever", async () => {
-		const thread = await db.emailThread.findUnique({
+		const thread = await db.emailThread.findFirst({
 			where: { rootMessageId: rootId },
 			select: { id: true },
 		});
@@ -159,7 +159,7 @@ describe("storing a synced email", () => {
 			}),
 		).toBe(1);
 
-		const thread = await db.emailThread.findUnique({
+		const thread = await db.emailThread.findFirst({
 			where: { rootMessageId: rootId },
 			select: { messageCount: true, activity: { select: { id: true } } },
 		});
@@ -169,7 +169,7 @@ describe("storing a synced email", () => {
 	});
 
 	it("repairs the thread the message is already on when the root id has moved", async () => {
-		const thread = await db.emailThread.findUnique({
+		const thread = await db.emailThread.findFirst({
 			where: { rootMessageId: rootId },
 			select: { id: true },
 		});

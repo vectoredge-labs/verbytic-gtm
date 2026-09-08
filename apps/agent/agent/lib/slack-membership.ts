@@ -127,6 +127,13 @@ async function classifyChannel(
 export async function joinSlackChannel(
 	channelId: string,
 ): Promise<JoinOutcome> {
+	if (process.env.EXTERNAL_WRITES_ENABLED !== "true") {
+		return {
+			joined: false,
+			reason: "External provider writes are disabled.",
+			needsHuman: true,
+		};
+	}
 	const channel = await db.slackChannel.findUnique({
 		where: { id: channelId },
 		select: { id: true, isPrivate: true, isMember: true },
@@ -226,6 +233,9 @@ export async function createSlackChannel(
 	name: string,
 	isPrivate: boolean,
 ): Promise<{ id: string; name: string } | { error: string }> {
+	if (process.env.EXTERNAL_WRITES_ENABLED !== "true") {
+		return { error: "External provider writes are disabled." };
+	}
 	const user = await slackUserToken();
 	const bot = await slackAccessToken();
 	const token = isPrivate ? user : (user ?? bot);

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { encryptOAuthSecret } from "@crm/auth";
 import { db } from "@crm/db";
 import { joinSlackChannel } from "../agent/lib/slack-membership";
 
@@ -9,6 +10,7 @@ const GRANT_ID = "slack-join-spec-grant";
 const INVENTORY_KIND = "slack-people-match";
 
 const realFetch = globalThis.fetch;
+const previousExternalWrites = process.env.EXTERNAL_WRITES_ENABLED;
 
 async function connect() {
 	await db.user.upsert({
@@ -55,6 +57,7 @@ function replies(reply: (url: string) => object) {
 let inventoryTaskIds: string[] = [];
 
 beforeEach(async () => {
+	process.env.EXTERNAL_WRITES_ENABLED = "true";
 	requested.length = 0;
 	inventoryTaskIds = (
 		await db.agentTask.findMany({
@@ -76,6 +79,11 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+	if (previousExternalWrites === undefined) {
+		delete process.env.EXTERNAL_WRITES_ENABLED;
+	} else {
+		process.env.EXTERNAL_WRITES_ENABLED = previousExternalWrites;
+	}
 	globalThis.fetch = realFetch;
 	await db.slackChannel.deleteMany({ where: { id: CHANNEL_ID } });
 	await db.slackWorkspaceGrant.deleteMany({ where: { id: GRANT_ID } });
@@ -133,7 +141,7 @@ describe("joining a Slack channel", () => {
 			data: {
 				id: GRANT_ID,
 				teamId: "T-JOIN-SPEC",
-				userToken: "xoxp-join-spec",
+				userToken: encryptOAuthSecret("xoxp-join-spec"),
 				userScopes: "groups:write",
 			},
 		});

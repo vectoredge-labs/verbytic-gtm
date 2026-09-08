@@ -3,7 +3,7 @@ name: PR base
 on:
   pull_request_target:
     types: [opened, reopened]
-    branches: [release]
+    branches-ignore: [release]
 
 concurrency:
   group: pr-base-${{ github.event.pull_request.number }}
@@ -15,14 +15,13 @@ permissions:
 
 jobs:
   retarget:
-    name: Retarget onto main
+    name: Retarget onto release
     if: >-
-      github.event.pull_request.head.ref != 'main' &&
       !startsWith(github.event.pull_request.head.ref, 'release-please--')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Move the pull request to main
+      - name: Move the pull request to release
         env:
           GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -30,23 +29,23 @@ jobs:
         run: |
           set -euo pipefail
 
-          gh pr edit "$NUMBER" --base main
+          gh pr edit "$NUMBER" --base release
 
-          echo "Retargeted #$NUMBER from \`release\` onto \`main\`." >> "$GITHUB_STEP_SUMMARY"
+          echo "Retargeted #$NUMBER onto \`release\`." >> "$GITHUB_STEP_SUMMARY"
 
       - uses: marocchino/sticky-pull-request-comment@v2
         continue-on-error: true
         with:
           header: pr-base
           message: |
-            **Retargeted this onto `main`.**
+            **Retargeted this onto `release`.**
 
-            `release` is the default branch so that a plain clone runs the last tagged release, but nothing merges into it — it is fast-forwarded onto the tag by the Release workflow and that is all. Changes go to `main`, and reach `release` when a release is cut.
+            `release` is the repository's integration and production branch.
 
-            Nothing is wrong with your branch. If the diff now shows commits that are already on `main`, rebase and force-push:
+            If the diff shows commits already on `release`, rebase and force-push:
 
             ```sh
-            git fetch origin main
-            git rebase origin/main
+            git fetch origin release
+            git rebase origin/release
             git push --force-with-lease
             ```

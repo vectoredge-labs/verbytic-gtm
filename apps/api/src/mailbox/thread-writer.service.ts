@@ -6,6 +6,7 @@ import {
 	type Prisma,
 	Prisma as PrismaNamespace,
 	RecordSource,
+	workspaceIdOrDefault,
 } from "@crm/db";
 import { Injectable, Logger } from "@nestjs/common";
 import { ActivityStampService } from "../crm/activity-stamp.service";
@@ -88,7 +89,12 @@ export class ThreadWriterService {
 					contactId: existing.thread.contactId,
 				}
 			: await this.db.emailThread.findUnique({
-					where: { rootMessageId: parsed.rootId },
+					where: {
+						organizationId_rootMessageId: {
+							organizationId: workspaceIdOrDefault(),
+							rootMessageId: parsed.rootId,
+						},
+					},
 					select: { id: true, companyId: true, contactId: true },
 				});
 
@@ -125,7 +131,12 @@ export class ThreadWriterService {
 				const record = existing
 					? { id: existing.threadId }
 					: await tx.emailThread.upsert({
-							where: { rootMessageId: parsed.rootId },
+							where: {
+								organizationId_rootMessageId: {
+									organizationId: workspaceIdOrDefault(),
+									rootMessageId: parsed.rootId,
+								},
+							},
 							create: {
 								rootMessageId: parsed.rootId,
 								subject: parsed.subject,

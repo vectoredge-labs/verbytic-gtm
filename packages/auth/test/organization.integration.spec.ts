@@ -62,12 +62,12 @@ beforeEach(async () => {
 afterAll(clear);
 
 describe("ensureWorkspaceMembership", () => {
-	it("creates the one workspace and enrols everyone who already had an account", async () => {
+	it("bootstraps only the first signer when no membership exists", async () => {
 		const workspaceId = await ensureWorkspaceMembership(secondId);
 
 		expect(workspaceId).toBe(WORKSPACE_ID);
-		expect(await roleOf(firstId)).toBe("owner");
-		expect(await roleOf(secondId)).toBe("member");
+		expect(await roleOf(firstId)).toBeNull();
+		expect(await roleOf(secondId)).toBe("owner");
 	});
 
 	it("is idempotent, so signing in again neither duplicates nor re-roles", async () => {
@@ -94,24 +94,27 @@ describe("ensureWorkspaceMembership", () => {
 		expect(rows[0]?.role).toBe("admin");
 	});
 
-	it("joins someone who signs up later as a member", async () => {
+	it("does not auto-enrol someone who signs up later", async () => {
 		await ensureWorkspaceMembership(secondId);
 
 		const laterId = await seedUser("later", new Date("2026-01-01T00:00:00Z"));
 
-		await ensureWorkspaceMembership(laterId);
+		const workspaceId = await ensureWorkspaceMembership(laterId);
 
-		expect(await roleOf(laterId)).toBe("member");
+		expect(workspaceId).toBeUndefined();
+		expect(await roleOf(laterId)).toBeNull();
 	});
 
-	it("leaves the owner alone when a later arrival signs in", async () => {
+	it("leaves the existing owner alone when a later arrival signs in", async () => {
 		await ensureWorkspaceMembership(secondId);
 
 		const laterId = await seedUser("later", new Date("2026-01-01T00:00:00Z"));
 
 		await ensureWorkspaceMembership(laterId);
 
-		expect(await roleOf(firstId)).toBe("owner");
+		expect(await roleOf(firstId)).toBeNull();
+		expect(await roleOf(secondId)).toBe("owner");
+		expect(await roleOf(laterId)).toBeNull();
 
 		const owners = await db.member.count({
 			where: { organizationId: WORKSPACE_ID, role: "owner" },
