@@ -588,6 +588,7 @@ export class GtmService {
 		});
 		if (!contact?.email)
 			throw new NotFoundException("Contact email not found.");
+		const email = contact.email.toLowerCase();
 		const [queuedSalesTasks, activeDrafts] = await Promise.all([
 			this.db.agentTask.count({
 				where: {
@@ -604,39 +605,78 @@ export class GtmService {
 				where: { contactId: contact.id, status: "ACTIVE" },
 			}),
 		]);
-		const suppressed = await this.db.suppressedContact.upsert({
-			where: {
-				organizationId_email: {
-					organizationId: this.workspaceId(),
-					email: contact.email.toLowerCase(),
+		return this.db.$transaction(async (tx) => {
+			const now = new Date();
+			const suppressed = await tx.suppressedContact.upsert({
+				where: {
+					organizationId_email: {
+						organizationId: this.workspaceId(),
+						email,
+					},
 				},
-			},
-			create: {
-				email: contact.email.toLowerCase(),
-				reason,
-				createdById: userId,
-			},
-			update: { reason, createdById: userId },
-			select: { id: true, email: true },
-		});
-		await this.audit(userId, "CONTACT", contact.id, "CONTACT_SUPPRESSED", {
-			gtmStatus: contact.gtmStatus,
-			reason,
-		});
-		if (queuedSalesTasks > 0 || activeDrafts > 0) {
-			await this.audit(
+				create: {
+					email,
+					reason,
+					createdById: userId,
+				},
+				update: { reason, createdById: userId },
+				select: { id: true, email: true },
+			});
+			await tx.contact.update({
+				where: { id: contact.id },
+				data: {
+					doNotContact: true,
+					automationPaused: true,
+					gtmStatus: "SUPPRESSED",
+				},
+			});
+			await tx.agentTask.updateMany({
+				where: {
+					contactId: contact.id,
+					finishedAt: null,
+					OR: [
+						{ kind: { contains: "outreach", mode: "insensitive" } },
+						{ kind: { contains: "follow", mode: "insensitive" } },
+						{ kind: { contains: "sales", mode: "insensitive" } },
+					],
+				},
+				data: { finishedAt: now, outcome: "cancelled: contact suppressed" },
+			});
+			await tx.gtmOutboundDraft.updateMany({
+				where: { contactId: contact.id, status: "ACTIVE" },
+				data: {
+					status: "CANCELLED",
+					cancelledAt: now,
+					cancelReason: "contact suppressed",
+				},
+			});
+			await this.auditTx(
+				tx,
 				userId,
 				"CONTACT",
 				contact.id,
-				"OUTBOUND_WORK_CANCELLED",
+				"CONTACT_SUPPRESSED",
 				{
-					reason: "contact suppressed",
-					queuedSalesTasks,
-					activeDrafts,
+					gtmStatus: contact.gtmStatus,
+					reason,
 				},
 			);
-		}
-		return suppressed;
+			if (queuedSalesTasks > 0 || activeDrafts > 0) {
+				await this.auditTx(
+					tx,
+					userId,
+					"CONTACT",
+					contact.id,
+					"OUTBOUND_WORK_CANCELLED",
+					{
+						reason: "contact suppressed",
+						queuedSalesTasks,
+						activeDrafts,
+					},
+				);
+			}
+			return suppressed;
+		});
 	}
 
 	async archive(input: z.infer<typeof archiveContactInput>, userId: string) {

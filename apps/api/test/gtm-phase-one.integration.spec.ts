@@ -125,10 +125,12 @@ describe("Phase 1 GTM controls", () => {
 			expect(edited?.draftRevision?.revision).toBe(2);
 			expect(edited?.draftRevision?.content).toBe("Edited exact content");
 			await expect(
-				db.gtmOutboundDraftRevision.update({
-					where: { id: revision?.id },
-					data: { content: "Mutated" },
-				}),
+				Promise.resolve(
+					db.gtmOutboundDraftRevision.update({
+						where: { id: revision?.id },
+						data: { content: "Mutated" },
+					}),
+				),
 			).rejects.toThrow("immutable");
 			const revised = await service.reviseDraft(
 				{
