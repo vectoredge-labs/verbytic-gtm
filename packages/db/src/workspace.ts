@@ -7,6 +7,7 @@ import {
 	type WorkspaceProfileSections,
 } from "./json";
 import { workspaceIdOrDefault } from "./workspace-scope";
+
 export {
 	DEFAULT_WORKSPACE_SLUG,
 	MAX_SLUG,
