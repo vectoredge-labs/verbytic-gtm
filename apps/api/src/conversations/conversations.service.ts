@@ -1,5 +1,9 @@
-import { WORKSPACE_ID } from "@crm/auth";
-import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
+import {
+	type Db,
+	type Prisma,
+	Prisma as PrismaNamespace,
+	workspaceIdOrDefault,
+} from "@crm/db";
 import { readAgentManifestSummary } from "@crm/validation/agent-manifest";
 import {
 	type BuilderQuestion,
@@ -1038,7 +1042,10 @@ export class ConversationsService {
 	private async assertWorkspaceMember(userId: string): Promise<void> {
 		const member = await this.db.member.findUnique({
 			where: {
-				organizationId_userId: { organizationId: WORKSPACE_ID, userId },
+				organizationId_userId: {
+					organizationId: workspaceIdOrDefault(),
+					userId,
+				},
 			},
 			select: { id: true },
 		});

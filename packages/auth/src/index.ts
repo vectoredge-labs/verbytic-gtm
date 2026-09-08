@@ -14,16 +14,27 @@ export {
 	isSlackConfigured,
 } from "./env";
 export {
+	decryptOAuthSecret,
+	decryptStoredOAuthToken,
+	encryptOAuthSecret,
+} from "./oauth-secret";
+export {
 	canChangeRole,
+	canDecideGtmApprovals,
 	canManageConnections,
 	canManageCurrency,
+	canManageGtmPolicy,
 	canManageTracking,
 	canRenameWorkspace,
 	DEFAULT_WORKSPACE_NAME,
 	ensureWorkspaceMembership,
 	isWorkspaceAdmin,
 	isWorkspaceRole,
+	organizationRoleOf,
+	toVerbyticRole,
 	toWorkspaceRole,
+	VERBYTIC_ROLES,
+	type VerbyticRole,
 	WORKSPACE_ID,
 	WORKSPACE_ROLES,
 	type WorkspaceRole,

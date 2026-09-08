@@ -1,5 +1,11 @@
 import { workspaceDomains } from "@crm/auth";
-import { ActivityType, type Db, Prisma, RecordSource } from "@crm/db";
+import {
+	ActivityType,
+	type Db,
+	Prisma,
+	RecordSource,
+	workspaceIdOrDefault,
+} from "@crm/db";
 import type { Touch } from "@crm/db/attribution";
 import {
 	CONTACT_CAP_REASON,
@@ -250,7 +256,12 @@ export class TrackingFilingService {
 				select: { email: true },
 			}),
 			this.db.suppressedDomain.findUnique({
-				where: { domain },
+				where: {
+					organizationId_domain: {
+						organizationId: workspaceIdOrDefault(),
+						domain,
+					},
+				},
 				select: { domain: true },
 			}),
 		]);

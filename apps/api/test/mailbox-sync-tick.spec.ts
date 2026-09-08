@@ -3,13 +3,11 @@ import {
 	GoogleSyncStatus,
 	type MailboxSyncModel as MailboxSync,
 } from "@crm/db";
-import type { GoogleConnectionService } from "../src/google/google-connection.service";
 import type { GoogleSyncService } from "../src/google/google-sync.service";
 import {
 	SYNC_LEASE_MS,
 	type SyncStateService,
 } from "../src/mailbox/sync-state.service";
-import type { MicrosoftConnectionService } from "../src/microsoft/microsoft-connection.service";
 import type { MicrosoftSyncService } from "../src/microsoft/microsoft-sync.service";
 import { MailboxSyncService } from "../src/sync/mailbox-sync.service";
 
@@ -107,10 +105,6 @@ class FakeState {
 	}
 }
 
-const noConnections = {
-	reconcileAll: async () => undefined,
-};
-
 function build(
 	state: FakeState,
 	runOne: (userId: string, source: string) => Promise<Outcome | null>,
@@ -121,8 +115,6 @@ function build(
 		state as unknown as SyncStateService,
 		provider,
 		provider as unknown as MicrosoftSyncService,
-		noConnections as unknown as GoogleConnectionService,
-		noConnections as unknown as MicrosoftConnectionService,
 	);
 }
 

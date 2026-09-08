@@ -2,10 +2,9 @@ import {
 	appUrl,
 	canManageTracking,
 	isWorkspaceRole,
-	WORKSPACE_ID,
 	type WorkspaceRole,
 } from "@crm/auth";
-import { type Db, DomainScope, Prisma } from "@crm/db";
+import { type Db, DomainScope, Prisma, workspaceIdOrDefault } from "@crm/db";
 import { describeTouch } from "@crm/db/attribution";
 import { safeFetch } from "@crm/db/safe-fetch";
 import { SETTINGS_ID } from "@crm/db/settings";
@@ -483,7 +482,7 @@ export class TrackingService {
 
 	private async roleOf(userId: string): Promise<WorkspaceRole | null> {
 		const member = await this.db.member.findFirst({
-			where: { organizationId: WORKSPACE_ID, userId },
+			where: { organizationId: workspaceIdOrDefault(), userId },
 			select: { role: true },
 		});
 

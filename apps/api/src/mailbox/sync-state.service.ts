@@ -3,6 +3,7 @@ import {
 	GoogleSyncStatus,
 	type MailboxSyncModel as MailboxSync,
 	type Prisma,
+	workspaceIdOrDefault,
 } from "@crm/db";
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
@@ -18,7 +19,13 @@ export class SyncStateService {
 
 	async get(userId: string, source: SyncSource): Promise<MailboxSync | null> {
 		return this.db.mailboxSync.findUnique({
-			where: { userId_source: { userId, source } },
+			where: {
+				organizationId_userId_source: {
+					organizationId: workspaceIdOrDefault(),
+					userId,
+					source,
+				},
+			},
 		});
 	}
 
@@ -64,7 +71,13 @@ export class SyncStateService {
 		options: { autoCreate: boolean },
 	): Promise<MailboxSync> {
 		return this.db.mailboxSync.upsert({
-			where: { userId_source: { userId, source } },
+			where: {
+				organizationId_userId_source: {
+					organizationId: workspaceIdOrDefault(),
+					userId,
+					source,
+				},
+			},
 			create: {
 				userId,
 				source,

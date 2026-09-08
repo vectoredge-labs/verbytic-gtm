@@ -16,6 +16,7 @@ if (!url) {
 }
 
 const name = databaseName(url);
+const migrationUrl = resolveMigration(url);
 
 if (!name.endsWith("_test")) {
 	fail([
@@ -25,8 +26,9 @@ if (!name.endsWith("_test")) {
 	]);
 }
 
-await create(url, name, process.argv.includes("--reset"));
-migrate(url);
+await create(migrationUrl, name, process.argv.includes("--reset"));
+migrate(migrationUrl);
+await provisionRuntime(migrationUrl, url);
 
 if (!process.env.TEST_DATABASE_URL) {
 	console.log(
@@ -152,7 +154,10 @@ function drifted(target: string): boolean {
 			SCHEMA,
 			"--exit-code",
 		],
-		{ stdio: "ignore", env: { ...process.env, DATABASE_URL: target } },
+		{
+			stdio: "ignore",
+			env: { ...process.env, MIGRATION_DATABASE_URL: target },
+		},
 	);
 
 	return result.status === 2;
@@ -161,7 +166,7 @@ function drifted(target: string): boolean {
 function migrate(target: string): void {
 	const result = spawnSync("prisma", ["migrate", "deploy"], {
 		stdio: "inherit",
-		env: { ...process.env, DATABASE_URL: target },
+		env: { ...process.env, MIGRATION_DATABASE_URL: target },
 	});
 
 	if (result.error) {
@@ -195,6 +200,52 @@ function resolve(): string | null {
 		return parsed.toString();
 	} catch {
 		return null;
+	}
+}
+
+function resolveMigration(runtime: string): string {
+	const explicit = process.env.TEST_MIGRATION_DATABASE_URL;
+	if (explicit) return explicit;
+
+	const configured = process.env.MIGRATION_DATABASE_URL;
+	if (!configured) return runtime;
+
+	const parsed = new URL(configured);
+	parsed.pathname = `/${databaseName(runtime)}`;
+	return parsed.toString();
+}
+
+async function provisionRuntime(
+	adminUrl: string,
+	runtimeUrl: string,
+): Promise<void> {
+	const admin = new URL(adminUrl);
+	const runtime = new URL(runtimeUrl);
+	if (admin.username === runtime.username) return;
+	if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(runtime.username)) {
+		fail(["TEST_DATABASE_URL has an invalid runtime user name."]);
+	}
+
+	const client = new pg.Client({ connectionString: admin.toString() });
+	await client.connect();
+	try {
+		const exists = await client.query(
+			"SELECT 1 FROM pg_roles WHERE rolname = $1",
+			[runtime.username],
+		);
+		const password = runtime.password.replaceAll("'", "''");
+		if (!exists.rowCount) {
+			await client.query(
+				`CREATE ROLE "${runtime.username}" LOGIN PASSWORD '${password}' IN ROLE crm_runtime`,
+			);
+		} else {
+			await client.query(
+				`ALTER ROLE "${runtime.username}" LOGIN PASSWORD '${password}'`,
+			);
+			await client.query(`GRANT crm_runtime TO "${runtime.username}"`);
+		}
+	} finally {
+		await client.end();
 	}
 }
 

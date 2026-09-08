@@ -3,11 +3,10 @@ import {
 	canRenameWorkspace,
 	ensureWorkspaceMembership,
 	isWorkspaceRole,
-	WORKSPACE_ID,
 	type WorkspaceRole,
 	workspaceRoleOf,
 } from "@crm/auth";
-import type { Db, Prisma } from "@crm/db";
+import { type Db, type Prisma, workspaceIdOrDefault } from "@crm/db";
 import { isOnboarded, markOnboarded, workspaceSlug } from "@crm/db/workspace";
 import {
 	BadRequestException,
@@ -106,7 +105,7 @@ export class WorkspaceService {
 		}
 
 		const before = await this.db.organization.findUnique({
-			where: { id: WORKSPACE_ID },
+			where: { id: workspaceIdOrDefault() },
 			select: { website: true, metadata: true },
 		});
 
@@ -119,7 +118,7 @@ export class WorkspaceService {
 		}
 
 		await this.db.organization.update({
-			where: { id: WORKSPACE_ID },
+			where: { id: workspaceIdOrDefault() },
 			data: {
 				name: input.name,
 				slug: workspaceSlug(input.slug ?? input.name),
@@ -185,8 +184,9 @@ export class WorkspaceService {
 		}
 
 		const updated = await this.db.$transaction(async (tx) => {
+			const organizationId = workspaceIdOrDefault();
 			const target = await tx.member.findFirst({
-				where: { id: input.memberId, organizationId: WORKSPACE_ID },
+				where: { id: input.memberId, organizationId },
 				select: { id: true, role: true },
 			});
 
@@ -197,7 +197,7 @@ export class WorkspaceService {
 			if (target.role === "owner" && input.role !== "owner") {
 				const owners = await tx.$queryRaw<{ id: string }[]>`
 					SELECT id FROM "member"
-					WHERE "organizationId" = ${WORKSPACE_ID} AND role = 'owner'
+					WHERE "organizationId" = ${organizationId} AND role = 'owner'
 					FOR UPDATE
 				`;
 
@@ -240,7 +240,9 @@ export class WorkspaceService {
 
 	private searchWhere(q: string): Prisma.MemberWhereInput {
 		const term = q.trim();
-		const where: Prisma.MemberWhereInput = { organizationId: WORKSPACE_ID };
+		const where: Prisma.MemberWhereInput = {
+			organizationId: workspaceIdOrDefault(),
+		};
 
 		if (term) {
 			where.user = {
@@ -266,7 +268,7 @@ export class WorkspaceService {
 
 	private async readWorkspace() {
 		return this.db.organization.findUnique({
-			where: { id: WORKSPACE_ID },
+			where: { id: workspaceIdOrDefault() },
 			select: {
 				id: true,
 				slug: true,

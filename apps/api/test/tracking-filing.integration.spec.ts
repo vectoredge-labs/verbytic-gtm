@@ -159,7 +159,7 @@ describe("filing a form submission", () => {
 		expect(outcome.filed).toBe(true);
 		expect(stored?.filedAt).not.toBeNull();
 
-		const contact = await db.contact.findUnique({
+		const contact = await db.contact.findFirst({
 			where: { email: `free-${suffix}@gmail.com` },
 			select: { companyId: true, source: true },
 		});
@@ -176,7 +176,7 @@ describe("filing a form submission", () => {
 		expect(stored?.contactId).toBeTruthy();
 		expect(queued).toHaveLength(1);
 
-		const contact = await db.contact.findUnique({
+		const contact = await db.contact.findFirst({
 			where: { email },
 			select: { companyId: true, firstName: true },
 		});

@@ -1,5 +1,6 @@
 import {
 	auth,
+	decryptStoredOAuthToken,
 	type MailboxProviderId,
 	parseScopes,
 	type SignInAccount,
@@ -142,8 +143,9 @@ export class MailboxTokenService {
 			where: { userId, providerId: GOOGLE_PROVIDER_ID },
 			select: { refreshToken: true, accessToken: true },
 		});
-
-		const token = account?.refreshToken ?? account?.accessToken;
+		const token = await decryptStoredOAuthToken(
+			account?.refreshToken ?? account?.accessToken,
+		);
 		if (!token) return true;
 
 		const response = await fetch(GOOGLE_REVOKE_URL, {

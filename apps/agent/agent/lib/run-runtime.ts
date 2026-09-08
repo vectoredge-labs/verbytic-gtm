@@ -602,6 +602,9 @@ export async function sendSlackMessage(
 	} = {},
 ): Promise<{ channel: string; ts: string }> {
 	const { fetcher = fetch, abortSignal, beforePost } = options;
+	if (fetcher === fetch && process.env.EXTERNAL_WRITES_ENABLED !== "true") {
+		throw new Error("External writes are disabled for this deployment.");
+	}
 	let channel = destination.id;
 	if (destination.kind === "user") {
 		const opened = slackOpenedConversation.parse(
