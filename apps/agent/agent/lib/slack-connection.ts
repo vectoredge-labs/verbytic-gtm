@@ -1,18 +1,15 @@
-import { auth, decryptOAuthSecret } from "@crm/auth";
+import { decryptOAuthSecret, decryptStoredOAuthToken } from "@crm/auth";
 import { db } from "@crm/db";
 
 export async function slackAccessToken(): Promise<string | null> {
 	const account = await db.account.findFirst({
 		where: { providerId: "slack", accessToken: { not: null } },
 		orderBy: { updatedAt: "desc" },
-		select: { userId: true },
+		select: { accessToken: true },
 	});
 
 	if (!account) return null;
-	const token = await auth.api.getAccessToken({
-		body: { providerId: "slack", userId: account.userId },
-	});
-	return token.accessToken;
+	return decryptStoredOAuthToken(account.accessToken);
 }
 
 export async function slackConnected(): Promise<boolean> {
